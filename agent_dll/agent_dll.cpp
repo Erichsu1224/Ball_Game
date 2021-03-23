@@ -4,9 +4,11 @@ using namespace std;
 const size_t NUM_ACTIONS = 9;
 enum actions { NOOP = 0, UP, DOWN, LEFT, RIGHT, UP_LEFT, UP_RIGHT, DOWN_LEFT, DOWN_RIGHT };
 
-#define max_x 1600
-#define max_y  900
- 
+#define max_x 1599
+#define max_y  898
+
+#define max_velcovity 2000
+
 #ifdef __cplusplus
 extern "C"
 {
@@ -35,47 +37,36 @@ int direction(int x_target, int y_target)
     return action;
 }
 
-pair<int, int> check_velocity(int target_x, int target_y, int agent_x, int agent_y, int agent_vx, int agent_vy){
-    int action_x, action_y;
+pair<int, int> check_velocity(int agent_x, int agent_y, int radius, int agent_vx, int agent_vy){
+    int action_x = 0, action_y = 0;
+
     //check x
     if(agent_vx != 0){
-        if(target_x-agent_x > 0){
-            if((max_x-target_x) / agent_vx >= agent_vx)
-                action_x = -(target_x-agent_x);
-            else
-                action_x = (target_x-agent_x);
+        if(agent_vx > 0){
+            if((max_x-radius-agent_x) / agent_vx <= agent_vx){
+                action_x = -max_velcovity;
+            }
         }
-        else if(target_x-agent_x < 0){
-            if((target_x) / agent_vx >= agent_vx)
-                action_x = -(target_x-agent_x);
-            else
-                action_x = (target_x-agent_x);
+        else if(agent_vx < 0){
+            if((agent_x-radius) / (-agent_vx) <= (-agent_vx)){
+                action_x = max_velcovity;
+            }
         }
-        else
-            action_x = 0;
     }
-    else
-        action_x = (target_x-agent_x);
 
     //check y
     if(agent_vy != 0){
-        if(target_y-agent_y > 0){
-            if((max_y-target_y) / agent_vy >= agent_vy)
-                action_y = -(target_y-agent_y);
-            else
-                action_y = (target_y-agent_y);
+        if(agent_vy > 0){
+            if((max_y-agent_y-radius) / agent_vy <= agent_vy){
+                action_y = -max_velcovity;
+            }
         }
-        else if(target_y-agent_y < 0){
-            if((target_y) / agent_vy >= agent_vy)
-                action_y = -(target_y-agent_y);
-            else
-                action_y = (target_y-agent_y);
+        else if(agent_vy < 0){
+            if((agent_y-radius) / (-agent_vy) <= (-agent_vy)){
+                action_y = max_velcovity;
+            }
         }
-        else
-            action_y = 0;
     }
-    else
-        action_y = (target_y-agent_y);
 
     return make_pair(action_x, action_y);
 }
@@ -128,15 +119,12 @@ __declspec(dllexport) void controller(int &action, const size_t agent, const siz
     int y_target = yCoordinate[location] - selfy;
 
 
-    //check direction and check if the v is too fast
-    tie(x_target, y_target) = check_velocity(xCoordinate[location], yCoordinate[location], selfx, selfy, xVelocity[0], yVelocity[0]);
+    // check direction and check if the v is too fast
+    int a_x, a_y;
+    tie(a_x, a_y) = check_velocity(selfx, selfy, circleRadius[0], xVelocity[0], yVelocity[0]);
 
     // decide the direction
-    action = direction(x_target, y_target);
-
-    freopen("log.log", "a+", stdout);
-    printf("%d %d %d %d\n", selfx, selfy, xVelocity[0], yVelocity[0]);
-    fclose(stdout);
+    action = direction(x_target+a_x, y_target+a_y);
 
     return;
 }

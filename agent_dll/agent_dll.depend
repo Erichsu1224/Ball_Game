@@ -1,0 +1,8 @@
+# depslib dependency file v1.0
+1616528608 source:c:\users\skarvit\documents\ball_game-main\agent_dll\agent_dll.cpp
+	"agent_dll.h"
+	<bits/stdc++.h>
+
+1616456386 c:\users\skarvit\documents\ball_game-main\agent_dll\agent_dll.h
+	<windows.h>
+
