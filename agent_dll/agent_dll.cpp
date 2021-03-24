@@ -5,7 +5,7 @@ const size_t NUM_ACTIONS = 9;
 enum actions { NOOP = 0, UP, DOWN, LEFT, RIGHT, UP_LEFT, UP_RIGHT, DOWN_LEFT, DOWN_RIGHT };
 
 #define max_x 1599
-#define max_y  898
+#define max_y  899
 
 #define max_velcovity 2000
 
@@ -27,7 +27,7 @@ int direction(int x_target, int y_target)
         action = LEFT;
     else if(x_target > 0 && y_target > 0) //the target ball is at the bottom right
     	action = DOWN_RIGHT;
-    else if(x_target > 0 && y_target < 0) //the target ball is at the top right
+    else if(x_target > 0 && y_target < 0) //the Ltarget ball is at the top right
     	action = UP_RIGHT;
     else if(x_target < 0 && y_target > 0) //the target ball is at the bottom left
     	action = DOWN_LEFT;
@@ -69,6 +69,41 @@ pair<int, int> check_velocity(int agent_x, int agent_y, int radius, int agent_vx
     }
 
     return make_pair(action_x, action_y);
+}
+
+pair<int, int> check_if_eat_next_step(int action_x, int action_y, int agent_x, int agent_y, int agent_vx, int agent_vy, int radius, int target_x, int target_y){
+    '''
+    Check if the ball will hit the wall, because of eating other balls.
+    '''
+
+    // Normalize
+    action_x = (action_x != 0) ? ((action_x > 0) ? 1 : -1) : 0;
+    action_y = (action_y != 0) ? ((action_y > 0) ? 1 : -1) : 0;
+
+    agent_vx += action_x;
+    agent_vy += action_y;
+
+    int a_x = 0, a_y = 0;
+
+    if(target_x-agent_x-radius <= agent_vx && target_y-agent_y-radius <= agent_vy){
+        // check x
+        if(agent_x+agent_vx-radius <= 0){
+            a_x = 1;
+        }
+        else if(agent_x+agent_vx+radius >= max_x){
+            a_x = -1;
+        }
+
+        // check x
+        if(agent_y+agent_vy-radius <= 0){
+            a_y = 1;
+        }
+        else if(agent_y+agent_vy+radius >= max_y){
+            a_y = -1;
+        }
+    }
+
+    return make_pair(action_x+a_x, action_y+a_y);
 }
 
 __declspec(dllexport) void controller(int &action, const size_t agent, const size_t num_agents, const size_t num_resources, const int* circleRadius,
@@ -123,8 +158,10 @@ __declspec(dllexport) void controller(int &action, const size_t agent, const siz
     int a_x, a_y;
     tie(a_x, a_y) = check_velocity(selfx, selfy, circleRadius[0], xVelocity[0], yVelocity[0]);
 
+    tie(x_target, y_target) = check_if_eat_next_step(x_target+a_x, y_target+a_y, selfx, selfy, xVelocity[0], yVelocity[0], circleRadius[0], xCoordinate[location], yCoordinate[location]);
+
     // decide the direction
-    action = direction(x_target+a_x, y_target+a_y);
+    action = direction(x_target, y_target);
 
     return;
 }
