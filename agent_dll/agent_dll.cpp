@@ -15,9 +15,16 @@ extern "C"
 {
 #endif
 
+/*
+	Hyper-parameters
+*/
+#define MIN_SOURCE_RADIUS	5
+#define MAX_SOURCE_DIS		400
+#define MAX_AGENT_DIS 		800
+
 pair<int, int> check_velocity(int agent_x, int agent_y, int radius, int agent_vx, int agent_vy);
 pair<int, int> normalize_action(int action_x, int action_y);
-pair<int, int> avoid_bigger_ball(int* xCoordinate, int* yCoordinate, int* circleRadius);
+pair<int, int> avoid_bigger_ball(const int* xCoordinate, const int* yCoordinate, const int* circleRadius);
 pair<int, int> check_if_eat_next_step(int action_x, int action_y, int agent_x, int agent_y, int agent_vx, int agent_vy, int radius, int target_x, int target_y);
 int direction(int x_target, int y_target);
 
@@ -114,7 +121,7 @@ pair<int, int> check_if_eat_next_step(int action_x, int action_y, int agent_x, i
     return make_pair(action_x+a_x, action_y+a_y);
 }
 
-pair<int, int> avoid_bigger_ball(int* xCoordinate, int* yCoordinate, int* circleRadius){
+pair<int, int> avoid_bigger_ball(const int* xCoordinate, const int* yCoordinate, const int* circleRadius){
     int agent_x = xCoordinate[0], agent_y = yCoordinate[0], agent_radius = circleRadius[0];
     int action_x = 0, action_y = 0, tmp_x, tmp_y;
 
@@ -141,43 +148,59 @@ __declspec(dllexport) void controller(int &action, const size_t agent, const siz
 {
     int selfx = xCoordinate[0]; //ball 1's xCoordinate
     int selfy = yCoordinate[0]; //ball 1's yCoordinate
+    int selfradius = circleRadius[0];
     int location = 10; //first black ball's location
     bool flag = false;
-    int maximum_blackball = 5; //assume the biggest black ball that ball 1 need to catch
-    int min_distance = 800;
+    int maximum_blackball = MIN_SOURCE_RADIUS; //assume the biggest black ball that ball 1 need to catch
+    int min_distance = MAX_SOURCE_DIS;
     // find the biggest black ball and the closest, return its location
     for(size_t i = 10; i < 15; i++){
         int x_distance = (xCoordinate[i] - xCoordinate[0]) * (xCoordinate[i] - xCoordinate[0]);
         int y_distance = (yCoordinate[i] - yCoordinate[0]) * (yCoordinate[i] - yCoordinate[0]);
         int two_distance = sqrt(x_distance + y_distance);
-        if(circleRadius[i] > 0 && circleRadius[i] >= maximum_blackball && two_distance < min_distance ){
+        if(circleRadius[i] > 0 && circleRadius[i] >= maximum_blackball && two_distance <= min_distance ){
             maximum_blackball = circleRadius[i];
             min_distance = two_distance;
             location = i;
-            flag = true;
+            // flag = true;
         }
     }
     int maximum_ball = 0;
-    int mini_distance = 1600;
+    int mini_distance = MAX_AGENT_DIS;
     // if the black ball's radius are all smaller than 5, and the target turn to the ball which is smaller than ball 1 and the biggest in ball 2 to ball 10;
-    if(!flag){
-        for(size_t i = 10; i < 15; i++){
-            if(circleRadius[i] < 5){
+    // if(!flag){
+    //     for(size_t i = 10; i < 15; i++){
+    //         if(circleRadius[i] < 5){
 
-                int x_distance = (xCoordinate[i] - xCoordinate[0]) * (xCoordinate[i] - xCoordinate[0]);
-                int y_distance = (yCoordinate[i] - yCoordinate[0]) * (yCoordinate[i] - yCoordinate[0]);
-                int two_distance = sqrt(x_distance + y_distance);
-                for(size_t t = 1; t < 10; t++){
-                    if(circleRadius[t] < circleRadius[0] && circleRadius[t] > 0 && circleRadius[t] > maximum_ball && two_distance < mini_distance ){
-                        maximum_ball = circleRadius[t];
-                        min_distance = two_distance;
-                        location = t;
-                        break;
-                    }
-                }
+    //             int x_distance = (xCoordinate[i] - xCoordinate[0]) * (xCoordinate[i] - xCoordinate[0]);
+    //             int y_distance = (yCoordinate[i] - yCoordinate[0]) * (yCoordinate[i] - yCoordinate[0]);
+    //             int two_distance = sqrt(x_distance + y_distance);
+    //             for(size_t t = 1; t < 10; t++){
+    //                 if(circleRadius[t] < circleRadius[0] && circleRadius[t] > 0 && circleRadius[t] > maximum_ball && two_distance < mini_distance ){
+    //                     maximum_ball = circleRadius[t];
+    //                     min_distance = two_distance;
+    //                     location = t;
+    //                     break;
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
+
+    if(selfradius >= 40 || !flag){
+        for(size_t i = 1; i < 10; i++){
+            int x_distance = (xCoordinate[i] - xCoordinate[0]) * (xCoordinate[i] - xCoordinate[0]);
+            int y_distance = (yCoordinate[i] - yCoordinate[0]) * (yCoordinate[i] - yCoordinate[0]);
+            int two_distance = sqrt(x_distance + y_distance);
+
+            if(circleRadius[i] < selfradius && circleRadius[i] > 0 && circleRadius[i] > maximum_ball && two_distance < mini_distance ){
+                maximum_ball = circleRadius[i];
+                min_distance = two_distance;
+                location = i;
             }
         }
     }
+
 
     /*
     Priority
@@ -201,7 +224,11 @@ __declspec(dllexport) void controller(int &action, const size_t agent, const siz
     target_x = avoid_hit_x*3 + avoid_ball_x*2 + target_x;
     target_y = avoid_hit_y*3 + avoid_ball_y*2 + target_y;
 
-    tie(target_x, target_y) = check_if_eat_next_step(target_x, target_y, selfx, selfy, xVelocity[0], yVelocity[0], circleRadius[0], xCoordinate[location], yCoordinate[location]);
+    // tie(target_x, target_y) = check_if_eat_next_step(target_x, target_y, selfx, selfy, xVelocity[0], yVelocity[0], circleRadius[0], xCoordinate[location], yCoordinate[location]);
+
+    freopen("log.log", "a+", stdout);
+    printf("%d %d %d %d %d %d\n", selfx, selfy, xVelocity[0], yVelocity[0], target_x, target_y);
+    fclose(stdout);
 
     // decide the direction
     action = direction(target_x, target_y);
