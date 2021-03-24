@@ -1,5 +1,6 @@
 #include "agent_dll.h"
 #include<bits/stdc++.h>
+
 using namespace std;
 const size_t NUM_ACTIONS = 9;
 enum actions { NOOP = 0, UP, DOWN, LEFT, RIGHT, UP_LEFT, UP_RIGHT, DOWN_LEFT, DOWN_RIGHT };
@@ -13,6 +14,14 @@ enum actions { NOOP = 0, UP, DOWN, LEFT, RIGHT, UP_LEFT, UP_RIGHT, DOWN_LEFT, DO
 extern "C"
 {
 #endif
+
+pair<int, int> check_velocity(int agent_x, int agent_y, int radius, int agent_vx, int agent_vy);
+pair<int, int> normalize_action(int action_x, int action_y);
+pair<int, int> avoid_bigger_ball(int* xCoordinate, int* yCoordinate, int* circleRadius);
+pair<int, int> check_if_eat_next_step(int action_x, int action_y, int agent_x, int agent_y, int agent_vx, int agent_vy, int radius, int target_x, int target_y);
+int direction(int x_target, int y_target);
+
+
 
 int direction(int x_target, int y_target)
 {
@@ -44,12 +53,12 @@ pair<int, int> check_velocity(int agent_x, int agent_y, int radius, int agent_vx
     if(agent_vx != 0){
         if(agent_vx > 0){
             if((max_x-radius-agent_x) / agent_vx <= agent_vx){
-                action_x = -max_velcovity;
+                action_x = -1;
             }
         }
         else if(agent_vx < 0){
             if((agent_x-radius) / (-agent_vx) <= (-agent_vx)){
-                action_x = max_velcovity;
+                action_x = 1;
             }
         }
     }
@@ -58,12 +67,12 @@ pair<int, int> check_velocity(int agent_x, int agent_y, int radius, int agent_vx
     if(agent_vy != 0){
         if(agent_vy > 0){
             if((max_y-agent_y-radius) / agent_vy <= agent_vy){
-                action_y = -max_velcovity;
+                action_y = -1;
             }
         }
         else if(agent_vy < 0){
             if((agent_y-radius) / (-agent_vy) <= (-agent_vy)){
-                action_y = max_velcovity;
+                action_y = 1;
             }
         }
     }
@@ -72,13 +81,12 @@ pair<int, int> check_velocity(int agent_x, int agent_y, int radius, int agent_vx
 }
 
 pair<int, int> check_if_eat_next_step(int action_x, int action_y, int agent_x, int agent_y, int agent_vx, int agent_vy, int radius, int target_x, int target_y){
-    '''
+    /*
     Check if the ball will hit the wall, because of eating other balls.
-    '''
+    */
 
     // Normalize
-    action_x = (action_x != 0) ? ((action_x > 0) ? 1 : -1) : 0;
-    action_y = (action_y != 0) ? ((action_y > 0) ? 1 : -1) : 0;
+    tie(action_x, action_y) = normalize_action(action_x, action_y);
 
     agent_vx += action_x;
     agent_vy += action_y;
@@ -104,6 +112,28 @@ pair<int, int> check_if_eat_next_step(int action_x, int action_y, int agent_x, i
     }
 
     return make_pair(action_x+a_x, action_y+a_y);
+}
+
+pair<int, int> avoid_bigger_ball(int* xCoordinate, int* yCoordinate, int* circleRadius){
+    int agent_x = xCoordinate[0], agent_y = yCoordinate[0], agent_radius = circleRadius[0];
+    int action_x = 0, action_y = 0, tmp_x, tmp_y;
+
+    for(int i = 1; i < 10; i++){
+        if(circleRadius[i] > agent_radius){
+            tie(tmp_x, tmp_y) = normalize_action(-(xCoordinate[i]-agent_x), -(yCoordinate[i]-agent_y));
+            action_x += tmp_x*agent_radius;
+            action_y += tmp_y*agent_radius;
+        }
+    }
+
+    return normalize_action(action_x, action_y);
+}
+
+pair<int, int> normalize_action(int action_x, int action_y){
+    action_x = (action_x != 0) ? ((action_x > 0) ? 1 : -1) : 0;
+    action_y = (action_y != 0) ? ((action_y > 0) ? 1 : -1) : 0;
+
+    return make_pair(action_x, action_y);
 }
 
 __declspec(dllexport) void controller(int &action, const size_t agent, const size_t num_agents, const size_t num_resources, const int* circleRadius,
@@ -149,19 +179,32 @@ __declspec(dllexport) void controller(int &action, const size_t agent, const siz
         }
     }
 
+    /*
+    Priority
+    1. avoid_hit_x, avoid_hit_y
+    2. avoid_ball_x, avoid_ball_y
+    3. target_x, target_y
+    */
+
     // find the target in the which side of ball 1
-    int x_target = xCoordinate[location] - selfx;
-    int y_target = yCoordinate[location] - selfy;
+    int target_x = xCoordinate[location] - selfx;
+    int target_y = yCoordinate[location] - selfy;
 
 
     // check direction and check if the v is too fast
-    int a_x, a_y;
-    tie(a_x, a_y) = check_velocity(selfx, selfy, circleRadius[0], xVelocity[0], yVelocity[0]);
+    int avoid_hit_x, avoid_hit_y;
+    tie(avoid_hit_x, avoid_hit_y) = check_velocity(selfx, selfy, circleRadius[0], xVelocity[0], yVelocity[0]);
 
-    tie(x_target, y_target) = check_if_eat_next_step(x_target+a_x, y_target+a_y, selfx, selfy, xVelocity[0], yVelocity[0], circleRadius[0], xCoordinate[location], yCoordinate[location]);
+    int avoid_ball_x, avoid_ball_y;
+    tie(avoid_ball_x, avoid_ball_y) = avoid_bigger_ball(xCoordinate, yCoordinate, circleRadius);
+
+    target_x = avoid_hit_x*3 + avoid_ball_x*2 + target_x;
+    target_y = avoid_hit_y*3 + avoid_ball_y*2 + target_y;
+
+    tie(target_x, target_y) = check_if_eat_next_step(target_x, target_y, selfx, selfy, xVelocity[0], yVelocity[0], circleRadius[0], xCoordinate[location], yCoordinate[location]);
 
     // decide the direction
-    action = direction(x_target, y_target);
+    action = direction(target_x, target_y);
 
     return;
 }
