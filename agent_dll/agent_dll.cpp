@@ -1,7 +1,5 @@
 #include "agent_dll.h"
-#include<bits/stdc++.h>
 
-using namespace std;
 const size_t NUM_ACTIONS = 9;
 enum actions { NOOP = 0, UP, DOWN, LEFT, RIGHT, UP_LEFT, UP_RIGHT, DOWN_LEFT, DOWN_RIGHT };
 
@@ -14,22 +12,10 @@ enum actions { NOOP = 0, UP, DOWN, LEFT, RIGHT, UP_LEFT, UP_RIGHT, DOWN_LEFT, DO
 #define RADIUS_THRESHOLD 50
 #define AVOID_DIS 200
 
-#define max_velcovity 2000
-
 #ifdef __cplusplus
 extern "C"
 {
 #endif
-
-pair<int, int> check_velocity(int agent_x, int agent_y, int radius, int agent_vx, int agent_vy);
-pair<int, int> check_ball(int agent_x, int agent_y, int action_x, int action_y, int radius, int agent_vx, int agent_vy);
-pair<int, int> normalize_action(float action_x, float action_y);
-pair<int, int> avoid_bigger_ball(const int* xCoordinate, const int* yCoordinate, const int* circleRadius, int agent_vx, int agent_vy, int action_x, int action_y);
-bool check_if_eat_next_step(int action_x, int action_y, int agent_x, int agent_y, int agent_vx, int agent_vy, int agent_radius, int target_x, int target_y, int target_radius);
-int direction(int x_target, int y_target);
-int calculate_distance(int x_self, int y_self, int x_other, int y_other);
-int check_over_speed(int target, int target_radius, int agent, int agent_radius, int agent_v);
-
 
 
 /*
@@ -65,22 +51,22 @@ int direction(int x_target, int y_target){
 
 /*
     * This function check if the agent will stop at the target location.
-    * It may trying to avoid the agent hitting the wall and over spped 
+    * It may trying to avoid the agent hitting the wall and over spped
     * when they trying to eat other agnets or resources
     * param:
-    *   target (int):           target location 
+    *   target (int):           target location
     *   target_radius (int):    radius of target
-    *   agent (int):            agent location 
+    *   agent (int):            agent location
     *   agent_radius (int) :    radius of agent radius
     *   agent_v (int) :         velocity of the agent
     * return:
-    *   (int): return if the acceleration should go opisite side or not.
+    *   (bool): return if the acceleration should go opisite side or not.
 */
-int check_over_speed(int target, int target_radius, int agent, int agent_radius, int agent_v){
+bool check_over_speed(int target, int target_radius, int agent, int agent_radius, int agent_v){
     if ((abs(target-agent)-target_radius-agent_radius) / abs(agent_v) < abs(agent_v) )
-        return ((-agent_v < 0) ? -1 : 1);
+        return true;
     else
-        return ((agent_v < 0) ? -1 : 1);
+        return false;
 }
 
 
@@ -96,26 +82,26 @@ int check_over_speed(int target, int target_radius, int agent, int agent_radius,
     * return:
     *   (pair<int, int>): return the acceleration if the agent need to get away from the wall.
 */
-pair<int, int> check_velocity(int agent_x, int agent_y, int radius, int agent_vx, int agent_vy) {
+std::pair<int, int> check_velocity(int agent_x, int agent_y, int radius, int agent_vx, int agent_vy) {
     int action_x = 0, action_y = 0;
 
     //check x
     if (agent_vx != 0) {
         if (agent_vx > 0)
-            action_x = check_over_speed(MAX_X, 1, agent_x, radius, agent_vx);
+            action_x = -agent_vx*check_over_speed(MAX_X, 1, agent_x, radius, agent_vx);
         else if (agent_vx < 0)
-            action_x = check_over_speed(0, 1, agent_x, radius, agent_vx);
+            action_x = -agent_vx*check_over_speed(0, 1, agent_x, radius, agent_vx);
     }
 
     //check y
     if (agent_vy != 0) {
-        if (agent_vy > 0) 
-            action_y = check_over_speed(MAX_Y, 1, agent_y, radius, agent_vy);
+        if (agent_vy > 0)
+            action_y = -agent_vy*check_over_speed(MAX_Y, 1, agent_y, radius, agent_vy);
         else if (agent_vy < 0)
-            action_y = check_over_speed(0, 1, agent_y, radius, agent_vy);
+            action_y = -agent_vy*check_over_speed(0, 1, agent_y, radius, agent_vy);
     }
 
-    return make_pair(action_x, action_y);
+    return normalize_action(action_x, action_y);
 }
 
 /*
@@ -131,21 +117,20 @@ pair<int, int> check_velocity(int agent_x, int agent_y, int radius, int agent_vx
     * return:
     *   (pair<int, int>): return the acceleration of the agent.
 */
-pair<int, int> action_for_target(int agent_x, int agent_y, int target_x, int target_y, int radius, int agent_vx, int agent_vy) {
+std::pair<int, int> action_for_target(int agent_x, int agent_y, int target_x, int target_y, int radius, int agent_vx, int agent_vy) {
     int action_x = target_x-agent_x, action_y = target_y-agent_y;
 
     //check x
-    if (agent_vx != 0) {
+    if (agent_vx != 0)
         // if the action_x and agent_vx goes with same direction
         if ((action_x * agent_vx) > 0)
-            action_x *= check_over_speed(target_x, 0, agent_x, 0, agent_vx);
-    }
+            action_x *= ((check_over_speed(target_x, 0, agent_x, 0, agent_vx) == true) ? -1 : 1);
+
 
     //check y
-    if (agent_vy != 0) {
+    if (agent_vy != 0)
         if ((action_y * agent_vy) > 0)
-            action_y *= check_over_speed(target_y, 0, agent_y, 0, agent_vy);
-    }
+            action_y *= ((check_over_speed(target_y, 0, agent_y, 0, agent_vy) == true) ? -1 : 1);
 
     return normalize_action(action_x, action_y);
 }
@@ -193,7 +178,7 @@ bool check_if_eat_next_step(int action_x, int action_y, int agent_x, int agent_y
     * return:
     *   (bool): the acceleration to avoid hitting other balls.
 */
-pair<int, int> avoid_bigger_ball(const int* xCoordinate, const int* yCoordinate, const int* circleRadius, int agent_vx, int agent_vy, int action_x, int action_y) {
+std::pair<int, int> avoid_bigger_ball(const int* xCoordinate, const int* yCoordinate, const int* circleRadius, int agent_vx, int agent_vy, int action_x, int action_y) {
 
     int agent_x = xCoordinate[0];
     int agent_y = yCoordinate[0];
@@ -209,7 +194,7 @@ pair<int, int> avoid_bigger_ball(const int* xCoordinate, const int* yCoordinate,
 
     for (int i = 1; i < 10; i++) {
         if (calculate_distance(agent_x, agent_y, xCoordinate[i], yCoordinate[i]) <= (circleRadius[0] + circleRadius[i])) {
-            tie(tmp_x, tmp_y) = normalize_action(-(xCoordinate[i] - agent_x), -(yCoordinate[i] - agent_y));
+            std::tie(tmp_x, tmp_y) = normalize_action(-(xCoordinate[i] - agent_x), -(yCoordinate[i] - agent_y));
             action_x += tmp_x;
             action_y += tmp_y;
         }
@@ -226,11 +211,11 @@ pair<int, int> avoid_bigger_ball(const int* xCoordinate, const int* yCoordinate,
     * return:
     * (pair<int, int>): unit vector
 */
-pair<int, int> normalize_action(float action_x, float action_y) {
+std::pair<int, int> normalize_action(float action_x, float action_y) {
     action_x = (action_x != 0) ? ((action_x > 0) ? 1 : -1) : 0;
     action_y = (action_y != 0) ? ((action_y > 0) ? 1 : -1) : 0;
 
-    return make_pair((int)action_x, (int)action_y);
+    return std::make_pair((int)action_x, (int)action_y);
 }
 
 /*
@@ -267,67 +252,71 @@ bool resource_exist(const int* radius) {
 __declspec(dllexport) void controller(int& action, const size_t agent, const size_t num_agents, const size_t num_resources, const int* circleRadius,
     const int* xCoordinate, const int* yCoordinate, const int* xVelocity, const int* yVelocity) // the coordinates of  balls and resource centers are in turn placed in the array xCoordinate, and yCoordinate
 {
-    int selfx = xCoordinate[0]; //ball 1's xCoordinate
-    int selfy = yCoordinate[0]; //ball 1's yCoordinate
-    int location = 10; //first black ball's location
+    int self_x = xCoordinate[0];    //xCoordinate of my agent
+    int self_y = yCoordinate[0];    //yCoordinate of my agent
+    int self_r = circleRadius[0];   //radius of my agent
+    int self_vx = xVelocity[0];     //xVelocity of my agent
+    int self_vy = yVelocity[0];     //yVelocity of my agent
+    int idx = 10;                   //first black ball's index
 
-    int maximum_blackball = 1;
+    int max_target_radius = 1;
     int min_distance = 1e9;
 
     for (size_t i = ((circleRadius[0] < RADIUS_THRESHOLD && resource_exist(circleRadius)) ? 10 : 1); i < 15; i++) {
-        int two_distance = calculate_distance(xCoordinate[0], yCoordinate[0], xCoordinate[i], yCoordinate[i]);
+        int two_distance = calculate_distance(self_x, self_y, xCoordinate[i], yCoordinate[i]);
 
         // The agent follows "less distance first strategy" when radius less than the threshold.
-        if (circleRadius[0] < RADIUS_THRESHOLD) {
-            if (circleRadius[i] > 0 && circleRadius[i] < circleRadius[0] && two_distance <= min_distance) {
+        if (self_r < RADIUS_THRESHOLD) {
+            if (circleRadius[i] > 0 && circleRadius[i] < self_r && two_distance <= min_distance) {
                 if (two_distance == min_distance) {
-                    maximum_blackball = max(maximum_blackball, circleRadius[i]);
+                    max_target_radius = std::max(max_target_radius, circleRadius[i]);
                     min_distance = min_distance;
-                    location = ((maximum_blackball >= circleRadius[i]) ? location : i);
+                    idx = ((max_target_radius >= circleRadius[i]) ? idx : i);
                 }
                 else {
-                    maximum_blackball = circleRadius[i];
+                    max_target_radius = circleRadius[i];
                     min_distance = two_distance;
-                    location = i;
+                    idx = i;
                 }
             }
         }
 
+        // The agent follows "larger radius first strategy" when radius bigger than the threshold.
         else {
-            if (circleRadius[i] > 0 && circleRadius[i] < circleRadius[0] && maximum_blackball <= circleRadius[i]) {
-                if (maximum_blackball == circleRadius[i]) {
-                    min_distance = min(min_distance, two_distance);
-                    location = ((min_distance <= two_distance) ? location : i);
+            if (circleRadius[i] > 0 && circleRadius[i] < self_r && max_target_radius <= circleRadius[i]) {
+                if (max_target_radius == circleRadius[i]) {
+                    min_distance = std::min(min_distance, two_distance);
+                    idx = ((min_distance <= two_distance) ? idx : i);
                 }
                 else {
-                    maximum_blackball = circleRadius[i];
+                    max_target_radius = circleRadius[i];
                     min_distance = two_distance;
-                    location = i;
+                    idx = i;
                 }
             }
         }
     }
 
+    int action_x = 0, action_y = 0;
+    std::tie(action_x, action_y) = action_for_target(self_x, self_y, xCoordinate[idx], yCoordinate[idx], self_r, self_vx, self_vy);
+
+    bool eat_flag = check_if_eat_next_step(action_x, action_y, self_x, self_y, self_vx, self_vy, self_r, xCoordinate[idx], yCoordinate[idx], circleRadius[idx]);
+
+    int avoid_ball_x = 0, avoid_ball_y = 0;
+    std::tie(avoid_ball_x, avoid_ball_y) = avoid_bigger_ball(xCoordinate, yCoordinate, circleRadius, self_vx, self_vy, action_x, action_y);
+
+    int avoid_hit_x = 0, avoid_hit_y = 0;
+    std::tie(avoid_hit_x, avoid_hit_y) = check_velocity(self_x, self_y, self_r + eat_flag, self_vx + action_x + avoid_ball_x, self_vy + action_y + avoid_ball_y);
+
+    // Calcalate the priority for the action
     /*
     Priority
     1. avoid_hit_x, avoid_hit_y
     2. avoid_ball_x, avoid_ball_y
     3. action_x, action_y
     */
-    int action_x = 0, action_y = 0;
-    tie(action_x, action_y) = action_for_target(selfx, selfy, xCoordinate[location], yCoordinate[location], circleRadius[0], xVelocity[0], yVelocity[0]);
-
-    bool eat_flag = check_if_eat_next_step(action_x, action_y, selfx, selfy, xVelocity[0], yVelocity[0], circleRadius[0], xCoordinate[location], yCoordinate[location], circleRadius[location]);
-
-    int avoid_ball_x = 0, avoid_ball_y = 0;
-    tie(avoid_ball_x, avoid_ball_y) = avoid_bigger_ball(xCoordinate, yCoordinate, circleRadius, xVelocity[0], yVelocity[0], action_x, action_y);
-
-    int avoid_hit_x = 0, avoid_hit_y = 0;
-    tie(avoid_hit_x, avoid_hit_y) = check_velocity(selfx, selfy, circleRadius[0] + eat_flag, xVelocity[0] + action_x + avoid_ball_x, yVelocity[0] + action_y + avoid_ball_y);
-
-    // Calcalate the priority for the action
-    action_x = avoid_hit_x * 3 + avoid_ball_x + action_x;
-    action_y = avoid_hit_y * 3 + avoid_ball_y + action_y;
+    action_x = avoid_hit_x*5 + avoid_ball_x*2 + action_x;
+    action_y = avoid_hit_y*5 + avoid_ball_y*2 + action_y;
 
     action = direction(action_x, action_y);
 
