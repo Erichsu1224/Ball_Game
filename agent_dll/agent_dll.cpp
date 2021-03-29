@@ -1,5 +1,6 @@
 #include "agent_dll.h"
-
+#include<bits/stdc++.h>
+using namespace std;
 const size_t NUM_ACTIONS = 9;
 enum actions { NOOP = 0, UP, DOWN, LEFT, RIGHT, UP_LEFT, UP_RIGHT, DOWN_LEFT, DOWN_RIGHT };
 
@@ -17,6 +18,15 @@ extern "C"
 {
 #endif
 
+int direction(int x_target, int y_target);
+bool check_over_speed(int target, int target_radius, int agent, int agent_radius, int agent_v);
+std::pair<int, int> check_velocity(int agent_x, int agent_y, int radius, int agent_vx, int agent_vy);
+std::pair<int, int> action_for_target(int agent_x, int agent_y, int target_x, int target_y, int radius, int agent_vx, int agent_vy) ;
+bool check_if_eat_next_step(int action_x, int action_y, int agent_x, int agent_y, int agent_vx, int agent_vy, int agent_radius, int target_x, int target_y, int target_radius);
+std::pair<int, int> avoid_bigger_ball(const int* xCoordinate, const int* yCoordinate, const int* circleRadius, int agent_vx, int agent_vy, int action_x, int action_y);
+std::pair<int, int> normalize_action(float action_x, float action_y);
+int calculate_distance(int x_self, int y_self, int x_other, int y_other);
+bool resource_exist(const int* radius);
 
 /*
     * This function convert accelerations to action
@@ -51,7 +61,7 @@ int direction(int x_target, int y_target){
 
 /*
     * This function check if the agent will stop at the target location.
-    * It may trying to avoid the agent hitting the wall and over spped
+    * It may trying to avoid the agent hitting the wall and over speed
     * when they trying to eat other agnets or resources
     * param:
     *   target (int):           target location
@@ -193,7 +203,7 @@ std::pair<int, int> avoid_bigger_ball(const int* xCoordinate, const int* yCoordi
     action_x = 0, action_y = 0;
 
     for (int i = 1; i < 10; i++) {
-        if (calculate_distance(agent_x, agent_y, xCoordinate[i], yCoordinate[i]) <= (circleRadius[0] + circleRadius[i])) {
+        if (circleRadius[0] < circleRadius[i] &&calculate_distance(agent_x, agent_y, xCoordinate[i], yCoordinate[i]) <= (circleRadius[0] + circleRadius[i])) {
             std::tie(tmp_x, tmp_y) = normalize_action(-(xCoordinate[i] - agent_x), -(yCoordinate[i] - agent_y));
             action_x += tmp_x;
             action_y += tmp_y;
@@ -252,6 +262,7 @@ bool resource_exist(const int* radius) {
 __declspec(dllexport) void controller(int& action, const size_t agent, const size_t num_agents, const size_t num_resources, const int* circleRadius,
     const int* xCoordinate, const int* yCoordinate, const int* xVelocity, const int* yVelocity) // the coordinates of  balls and resource centers are in turn placed in the array xCoordinate, and yCoordinate
 {
+    //freopen("log.log", "a+", stdout);
     int self_x = xCoordinate[0];    //xCoordinate of my agent
     int self_y = yCoordinate[0];    //yCoordinate of my agent
     int self_r = circleRadius[0];   //radius of my agent
@@ -297,6 +308,7 @@ __declspec(dllexport) void controller(int& action, const size_t agent, const siz
         }
     }
 
+
     int action_x = 0, action_y = 0;
     std::tie(action_x, action_y) = action_for_target(self_x, self_y, xCoordinate[idx], yCoordinate[idx], self_r, self_vx, self_vy);
 
@@ -308,6 +320,11 @@ __declspec(dllexport) void controller(int& action, const size_t agent, const siz
     int avoid_hit_x = 0, avoid_hit_y = 0;
     std::tie(avoid_hit_x, avoid_hit_y) = check_velocity(self_x, self_y, self_r + eat_flag, self_vx + action_x + avoid_ball_x, self_vy + action_y + avoid_ball_y);
 
+    cout << "idx = " << idx + 1 << " | ";
+    cout << "idx radius = " << circleRadius[idx] << endl;
+    printf("radius = %d\n", circleRadius[0]);
+    printf("x = %d %d %d\n", avoid_hit_x , avoid_ball_x ,action_x);
+    printf("y = %d %d %d\n",avoid_hit_y , avoid_ball_y, action_y);
     // Calcalate the priority for the action
     /*
     Priority
@@ -317,9 +334,10 @@ __declspec(dllexport) void controller(int& action, const size_t agent, const siz
     */
     action_x = avoid_hit_x*5 + avoid_ball_x*2 + action_x;
     action_y = avoid_hit_y*5 + avoid_ball_y*2 + action_y;
-
+    printf("%d %d | %d %d | %d %d\n", xCoordinate[idx], yCoordinate[idx], action_x, action_y, xCoordinate[0], yCoordinate[0]);
     action = direction(action_x, action_y);
-
+    printf("-------------------------------------------------\n");
+    //fclose(stdout);
     return;
 }
 
