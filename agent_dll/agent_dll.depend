@@ -1,0 +1,8 @@
+# depslib dependency file v1.0
+1617004482 source:c:\users\cs2019\desktop\ball_game\agent_dll\agent_dll.cpp
+	"agent_dll.h"
+
+1617004246 c:\users\cs2019\desktop\ball_game\agent_dll\agent_dll.h
+	<windows.h>
+	<bits/stdc++.h>
+

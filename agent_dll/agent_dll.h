@@ -26,6 +26,8 @@ bool check_if_eat_next_step(int action_x, int action_y, int agent_x, int agent_y
 int direction(int x_target, int y_target);
 int calculate_distance(int x_self, int y_self, int x_other, int y_other);
 bool check_over_speed(int target, int target_radius, int agent, int agent_radius, int agent_v);
+int continual_eating(const int* xCoordinate, const int* yCoordinate, const int* circleRadius);
+bool resource_exist(const int* radius);
 
 void controller(int &action, const size_t agent, const size_t num_agents, const size_t num_resources, const int* circleRadius, const int* xCoordinate, const int* yCoordinate, const int* xVelocity, const int* yVelocity);
 
